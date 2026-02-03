@@ -14,7 +14,7 @@ import pandas as pd
 import time
 
 # API 키 설정
-openai.api_key = "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"  # ← 반드시 여기에 개인 API 키를 입력하세요.
+openai.api_key = "open-ai-api-key"  # ← 반드시 여기에 개인 API 키를 입력하세요.
 
 # CSV 파일 불러오기
 df = pd.read_csv("passive_ai_order.csv", header=None)
