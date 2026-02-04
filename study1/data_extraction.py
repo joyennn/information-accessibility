@@ -1,34 +1,26 @@
-# ✅ Step 1: stanza 설치 (처음 1회만 실행)
-!pip install stanza --quiet
-
-# ✅ Step 2: stanza 다운로드 및 초기화
+import csv
 import stanza
+from tqdm import tqdm
 
-# 영어 모델 다운로드 (처음 1회만 실행)
+
 stanza.download('en')
-
-# NLP 파이프라인 로드
 nlp = stanza.Pipeline('en')
-
-# ✅ Step 3: 테스트 문장 입력
-text = "A bran muffin I can give you."
-
-# 문장 분석
 doc = nlp(text)
 
-# ✅ Step 4: CoNLL-U 형식 출력
+# CoNLL-U form setting
 for sentence in doc.sentences:
     print("# text =", sentence.text)
     for word in sentence.words:
         print(f"{word.id}\t{word.text}\t{word.lemma}\t{word.upos}\t{word.xpos}\t{word.feats if word.feats else '_'}\t{word.head}\t{word.deprel}\t_\t_")
     print()
 
-###문장추출###
 
-# 파일을 라인 단위로 읽어서 리스트에 저장
+### Target Sentences Extraction ###
+
 with open("bnc_filtered.txt", "r", encoding="utf-8") as f:
-    data = [line.strip() for line in f if line.strip()]  # 공백 줄은 제외하고 저장
+    data = [line.strip() for line in f if line.strip()]
 
+#preposing
 def is_preposing(sent):
     for word in sent.words:
         if word.deprel == "root" and word.upos in {"NOUN", "PROPN", "PRON"}:
@@ -39,6 +31,7 @@ def is_preposing(sent):
                     return True, root_noun
     return False, None
 
+#passive
 def is_passive(sent):
     root_verb_id = None
     has_be_auxpass = False
@@ -73,12 +66,12 @@ def is_passive(sent):
 
     return has_be_auxpass and by_agent_ok and passive_subject is not None, passive_subject
 
+#inversion1
 def is_inversion_type1(sent):
     first = sent.words[0]
     if first.deprel not in {"advmod", "case", "csubj"}:
         return False, None
 
-    # 콤마 확인: root 이전에 쉼표가 있는지 확인
     root_idx = -1
     for i, word in enumerate(sent.words):
         if word.deprel == "root":
@@ -114,6 +107,7 @@ def is_inversion_type1(sent):
     return has_cop and len(candidates) > 0, ", ".join(candidates)
 
 
+#inversion2
 def is_inversion_type2(sent):
     first = sent.words[0]
     if first.deprel not in {"advmod", "case", "csubj"}:
@@ -166,19 +160,8 @@ def is_inversion(sent):
         return True, noun2
     return False, None
 
-from google.colab import drive
-drive.mount('/content/drive')
 
-save_dir = "/content/drive/MyDrive/IS_results"
-
-import os
-os.makedirs(save_dir, exist_ok=True)  # 폴더 없으면 생성
-
-import stanza
-from tqdm import tqdm
-import csv
-
-# stanza 초기화 (처음 1회)
+#stanza initial setting
 nlp = stanza.Pipeline(
     'en',
     use_gpu=True,
@@ -188,9 +171,7 @@ nlp = stanza.Pipeline(
     depparse_batch_size=64
 )
 
-print(len(data))
-
-df = data[600001:] #처음부터 다시
+df = data[600001:] #index setting
 
 preposing = []
 passive = []
@@ -201,7 +182,7 @@ from tqdm import tqdm
 
 start_index = 0
 
-for i in tqdm(range(start_index, len(df)), desc="검사 중"):
+for i in tqdm(range(start_index, len(df)), desc="Processing"):
     text = df[i]
 
     try:
@@ -235,88 +216,19 @@ for i in tqdm(range(start_index, len(df)), desc="검사 중"):
         with open(f"{save_dir}/checkpoint.pkl", "wb") as f:
             pickle.dump(i + 1, f)
 
-### 중단된 부분부터 다시 시작
 
-import os
-import pickle
-
-# 저장된 결과가 있다면 이어서 로드
-checkpoint_path = f"{save_dir}/checkpoint.pkl"
-
-if os.path.exists(checkpoint_path):
-    with open(checkpoint_path, "rb") as f:
-        start_index = pickle.load(f)
-    print(f"이전 중단 지점에서 이어서 시작: {start_index}")
-
-    with open(f"{save_dir}/preposing.pkl", "rb") as f:
-        preposing = pickle.load(f)
-    with open(f"{save_dir}/inversion.pkl", "rb") as f:
-        inversion = pickle.load(f)
-    with open(f"{save_dir}/passive.pkl", "rb") as f:
-        passive = pickle.load(f)
-else:
-    # 처음부터 시작
-    start_index = 0
-    preposing = []
-    inversion = []
-    passive = []
-    print("처음부터 시작합니다.")
-
-from tqdm import tqdm
-
-for i in tqdm(range(start_index, len(df)), desc="검사 중"):
-    text = df[i]
-
-    try:
-        doc = nlp(text)
-
-        for sent in doc.sentences:
-            match, noun = is_preposing(sent)
-            if match:
-                preposing.append([text, noun])
-
-            match, noun = is_inversion(sent)
-            if match:
-                inversion.append([text, noun])
-
-            if "by" in text.lower():
-                match, noun = is_passive(sent)
-                if match:
-                    passive.append([text, noun])
-
-    except Exception as e:
-        print(f"{i}번째 문장에서 오류 발생: {e}")
-        continue
-
-    # 주기적으로 중간 저장
-    if i % 100 == 0:
-        with open(f"{save_dir}/preposing.pkl", "wb") as f:
-            pickle.dump(preposing, f)
-        with open(f"{save_dir}/inversion.pkl", "wb") as f:
-            pickle.dump(inversion, f)
-        with open(f"{save_dir}/passive.pkl", "wb") as f:
-            pickle.dump(passive, f)
-        with open(f"{save_dir}/checkpoint.pkl", "wb") as f:
-            pickle.dump(i + 1, f)
-
-print(len(preposing))
-print(len(passive))
-print(len(inversion))
-
-import csv
-
-# Preposing 저장
-with open("preposing8.csv", "w", encoding="utf-8", newline="") as f:
+# Preposing - Save
+with open("preposing.csv", "w", encoding="utf-8", newline="") as f:
     writer = csv.writer(f)
     writer.writerows(preposing)
 
-# Passive 저장
-with open("passive8.csv", "w", encoding="utf-8", newline="") as f:
+# Passive - Save
+with open("passive.csv", "w", encoding="utf-8", newline="") as f:
     writer = csv.writer(f)
     writer.writerows(passive)
 
-# Inversion 저장
-with open("inversion8.csv", "w", encoding="utf-8", newline="") as f:
+# Inversion - Save
+with open("inversion.csv", "w", encoding="utf-8", newline="") as f:
     writer = csv.writer(f)
     writer.writerows(inversion)
 
