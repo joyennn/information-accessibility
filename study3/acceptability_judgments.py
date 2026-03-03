@@ -1,5 +1,3 @@
-### acceptability
-
 import pandas as pd
 import time
 from tqdm import tqdm
@@ -8,23 +6,15 @@ import anthropic
 import google.generativeai as genai
 
 
-# API 키 설정 (환경변수나 안전한 방식으로 불러올 것)
+# API key
 openai.api_key = ""
 claude_client = anthropic.Anthropic(api_key="")
 genai.configure(api_key="")
 
 
-# 데이터 로딩
-df = pd.read_csv("missing.csv")
-# df.rename(columns={
-#     df.columns[0]: "id",  # 첫 열이 id라면
-#     df.columns[1]: "discourse",
-#     df.columns[2]: "sentence",
-#     df.columns[3]: "bridging"
-# }, inplace=True)
+df = pd.read_csv("file.csv")
 
 
-# 프롬프트 생성 함수
 def make_prompt(preceding_discourse, target_sentence):
     return (
         f"Read the given context and the following sentence, and rate how naturally the sentence follows the context.\n\n"
@@ -35,7 +25,6 @@ def make_prompt(preceding_discourse, target_sentence):
     )
 
 
-# 모델 질의 함수
 def query_gpt(prompt):
     response = openai.ChatCompletion.create(
         model="gpt-4o",
@@ -59,9 +48,9 @@ def query_gemini(prompt):
     return response.text
 
 
-# 반복 평가
-n_runs = 1
+n_runs = 10
 results = []
+
 
 for idx, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating rows"):
     prompt = make_prompt(row["preceding_discourse"], row["target_sentence"])
@@ -79,7 +68,6 @@ for idx, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating rows"):
                 print(f"[{model_name}] Error on row {idx}, run {run}: {e}")
                 score = ""
 
-            # 결과 행 추가
             results.append({
                 "original_index": idx + 1,
                 "run": run,
@@ -94,114 +82,6 @@ for idx, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating rows"):
 
             time.sleep(0.3)
 
-# DataFrame으로 변환 후 저장
+
 df_results = pd.DataFrame(results)
-df_results.to_csv("accept_result_re10.csv", index=False)
-
-!huggingface-cli login
-
-from transformers import AutoTokenizer, AutoModelForCausalLM, TextGenerationPipeline, pipeline
-import pandas as pd
-import time
-from tqdm import tqdm
-import torch
-
-# LLaMA 3 사전 로딩
-model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
-
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-llama_model = AutoModelForCausalLM.from_pretrained(
-    model_id,
-    torch_dtype=torch.float16,
-    device_map="auto",
-    low_cpu_mem_usage=True
-)
-
-# 테스트용 텍스트 생성 파이프라인
-llama_pipe = TextGenerationPipeline(model=llama_model, tokenizer=tokenizer)
-
-
-# 데이터 로딩
-# CSV 로딩 + 열 이름 지정
-df = pd.read_csv("2_preposing.csv", header=None)
-df.rename(columns={
-    df.columns[1]: "discourse",
-    df.columns[2]: "sentence"
-}, inplace=True)
-
-# 점수 저장 열 추가
-for model in ["llama3"]:
-    df[f"score_{model}"] = ""
-
-# 프롬프트 생성 함수
-def make_prompt(discourse, sentence):
-    return f"""
-Discourse: {discourse}
-Sentence: {sentence}
-
-How acceptable is the sentence as a continuation of the discourse?
-Please respond with a number from 1 (not acceptable) to 7 (completely acceptable).
-Answer:"""
-
-def query_llama(prompt):
-    inputs = tokenizer(prompt, return_tensors="pt")
-    inputs = {k: v.to(llama_model.device) for k, v in inputs.items()}  # ✅ 여기!
-
-    outputs = llama_model.generate(
-        **inputs,
-        max_new_tokens=10,
-        do_sample=False,
-        pad_token_id=tokenizer.eos_token_id
-    )
-
-    generated = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return generated.replace(prompt, "").strip()
-
-
-
-n_runs = 10
-
-# 결과 저장용 리스트
-results = []
-
-# 모델별 평가 함수
-for idx, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating rows"):
-    prompt = make_prompt(row["discourse"], row["sentence"])
-
-    for model_name, query_func in {
-        "llama3": query_llama
-    }.items():
-        for run in range(1, n_runs + 1):
-            try:
-                response = query_func(prompt)
-                score = int("".join([c for c in response if c.isdigit()][:1]))
-            except Exception as e:
-                print(f"[{model_name}] Error on row {idx}, run {run}: {e}")
-                score = ""
-
-            # 각 응답을 새로운 행으로 저장
-            results.append({
-                "original_index": idx,
-                "run": run,
-                "model": model_name,
-                "discourse": row["discourse"],
-                "sentence": row["sentence"],
-                "score": score
-            })
-
-            time.sleep(0.3)
-
-# 결과를 DataFrame으로 변환
-df_results = pd.DataFrame(results)
-
-# 저장
-df_results.to_csv("llama3_scores_expanded.csv", index=False)
-
-from google.colab import files
-files.download("llama3_scores_expanded.csv")
-
-
-
-from google.colab import files
-files.download("2_preposing_result.csv")
-
+df_results.to_csv("save_results.csv", index=False)
