@@ -2,3 +2,4 @@ matplotlib
 scikit-learn
 transformers==4.39.3
 sentence-transformers==2.6.1
+openai==0.28
