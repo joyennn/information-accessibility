@@ -2,11 +2,12 @@ import openai
 import pandas as pd
 import time
 
-# API 키 설정
-openai.api_key = "open-ai-api-key"  # ← 반드시 여기에 개인 API 키를 입력하세요.
+### Task 1: Context-driven Generation ###
 
-# CSV 파일 불러오기
-df = pd.read_csv("passive_ai_order.csv", header=None)
+# API key
+openai.api_key = "open-ai-api-key"
+
+df = pd.read_csv("file.csv", header=None)
 
 def build_prompt(sentence):
     return f"""Please generate a short and natural discourse that could come before the following sentence in a conversation or written text:
@@ -14,13 +15,11 @@ def build_prompt(sentence):
 {sentence}
 """
 
-# 결과 저장 리스트
+
 preceding_discourses = []
 
-# 문장 리스트 추출
 sentences = df[0].tolist()
 
-# 하나씩 API 호출
 for i, sentence in enumerate(sentences):
     prompt = build_prompt(sentence)
 
@@ -36,27 +35,27 @@ for i, sentence in enumerate(sentences):
 
     preceding_discourses.append(result)
     print(f"{i+1}/{len(sentences)} complete.")
-    time.sleep(0.5)  # OpenAI 요청 속도 제한을 고려한 대기
+    time.sleep(0.5)  
 
-# 결과를 데이터프레임에 추가
+
 df['Preceding'] = preceding_discourses
 
-# CSV로 저장 (헤더 없이 저장하려면 header=False)
-df.to_csv("passive_with_discourse.csv", index=False, header=False)
+df.to_csv("save_file.csv", index=False, header=False)
 
-print("✅ 변환 완료")
+print("✅ Complete!")
 
-"""### context-only"""
+
+
+### Task 2: Construction-driven Generation ###
 
 import openai
 import pandas as pd
 import time
 
-# API 키 설정
-openai.api_key = "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"  # ← 반드시 여기에 개인 API 키를 입력하세요.
+# API key
+openai.api_key = "open-ai-api-key"  # ← 반드시 여기에 개인 API 키를 입력하세요.
 
-# CSV 파일 불러오기
-df = pd.read_csv("passive2.csv", header=None)
+df = pd.read_csv("file.csv", header=None)
 
 def build_prompt(discourse):
     return f"""Please generate an passive sentence with by-phrase at the end (without any extra expressions), which can naturally follow the given discourse:
@@ -64,14 +63,12 @@ def build_prompt(discourse):
 {discourse}
 """
 
+### prompts ###
 #Please generate a preposing sentence (where an argument appearing to the left of its canonical position like O-S-V), which can naturally follow the given discourse:
 #Please generate an inversion sentence (where a prepositional phrase comes first, followed by the verb, and then a noun phrase. like PP-V-NP), which can naturally follow the given discourse:
 #Please generate an passive sentence with by-phrase at the end (without any extra expressions), which can naturally follow the given discourse:
 
-###test
 
-discourse = """ How do you do?
-"""
 prompt = build_prompt(discourse)
 response = openai.ChatCompletion.create(
             model="gpt-4o",
@@ -81,13 +78,11 @@ response = openai.ChatCompletion.create(
 result = response['choices'][0]['message']['content'].strip()
 print(result)
 
-# 결과 저장 리스트
+
 target_sentence = []
 
-# 문장 리스트 추출
 discourses = df[0].tolist()
 
-# 하나씩 API 호출
 for i, discourse in enumerate(discourses):
     prompt = build_prompt(discourse)
 
@@ -103,13 +98,11 @@ for i, discourse in enumerate(discourses):
 
     target_sentence.append(result)
     print(f"{i+1}/{len(discourses)} complete.")
-    time.sleep(0.3)  # OpenAI 요청 속도 제한을 고려한 대기
+    time.sleep(0.3) 
 
-# 결과를 데이터프레임에 추가
+
 df['target_sentence'] = target_sentence
 
-# CSV로 저장 (헤더 없이 저장하려면 header=False)
-df.to_csv("passive2_with_sentence.csv", index=False, header=False)
+df.to_csv("save_file.csv", index=False, header=False)
 
-print("✅ 저장 완료")
-
+print("✅ Complete!")
