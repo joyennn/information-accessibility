@@ -1,5 +1,3 @@
-
-
 ### acceptability
 
 import pandas as pd
