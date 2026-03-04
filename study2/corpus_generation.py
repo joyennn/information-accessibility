@@ -2,7 +2,7 @@ import openai
 import pandas as pd
 import time
 
-### Task 1: Context-driven Generation ###
+### Task 1: Context-based Generation ###
 
 # API key
 openai.api_key = "open-ai-api-key"
@@ -46,14 +46,14 @@ print("✅ Complete!")
 
 
 
-### Task 2: Construction-driven Generation ###
+### Task 2: Construction-based Generation ###
 
 import openai
 import pandas as pd
 import time
 
 # API key
-openai.api_key = "open-ai-api-key"  # ← 반드시 여기에 개인 API 키를 입력하세요.
+openai.api_key = "open-ai-api-key"  # 
 
 df = pd.read_csv("file.csv", header=None)
 
